@@ -81,6 +81,7 @@ class HistoryService(
     fun canOpenHistory(noteId: Long): Boolean {
         assert(noteId > 0L)
         val note = requireNote(noteId)
+        if (note.isTrashed()) return false
         val latest = latestSnapshot(noteId)
         return latest != null && note.content == latest.content
     }
@@ -89,6 +90,7 @@ class HistoryService(
     fun listSnapshotsNewestFirst(noteId: Long): List<SnapshotListItem> {
         assert(noteId > 0L)
         val note = requireNote(noteId)
+        check(!note.isTrashed()) { "History is unavailable for trashed notes" }
         val latest = latestSnapshot(noteId) ?: error("History requires at least one snapshot")
         check(note.content == latest.content) { "History requires no pending changes" }
         return snapshots.listForNote(noteId).asReversed().map {
@@ -135,6 +137,7 @@ class HistoryService(
     // Require a saved draft because history actions must not discard pending user edits.
     private fun requireCleanNote(noteId: Long, action: String): Note {
         val note = requireNote(noteId)
+        check(!note.isTrashed()) { "$action is unavailable for trashed notes" }
         val latest = latestSnapshot(noteId) ?: error("$action requires at least one snapshot")
         check(note.content == latest.content) { "$action requires no pending changes" }
         return note

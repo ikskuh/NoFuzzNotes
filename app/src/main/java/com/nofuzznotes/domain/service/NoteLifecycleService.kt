@@ -29,6 +29,8 @@ class NoteLifecycleService(
     // Persist every draft change immediately because the draft is the user's current durable work.
     fun editDraft(noteId: Long, content: String): OpenNoteResult {
         assert(noteId > 0L)
+        val existing = requireNote(noteId)
+        check(!existing.isTrashed()) { "Trashed notes cannot be edited" }
         val note = notes.updateContent(noteId, content)
         val latest = latestSnapshot(noteId)
         return OpenNoteResult(note = note, latestSnapshot = latest, mode = EditorMode.Edit)
@@ -38,6 +40,7 @@ class NoteLifecycleService(
     fun saveNote(noteId: Long): SaveNoteResult {
         assert(noteId > 0L)
         val beforeTouch = requireNote(noteId)
+        check(!beforeTouch.isTrashed()) { "Trashed notes cannot be saved" }
         val latest = latestSnapshot(noteId)
         val created = if (latest?.content == beforeTouch.content) null else snapshots.create(noteId, beforeTouch.content)
         val touched = notes.touchEdited(noteId)
@@ -48,14 +51,15 @@ class NoteLifecycleService(
     // Allow cancel only when a saved version exists because there is otherwise no safe target.
     fun canCancelEdit(noteId: Long): Boolean {
         assert(noteId > 0L)
-        requireNote(noteId)
-        return latestSnapshot(noteId) != null
+        val note = requireNote(noteId)
+        return !note.isTrashed() && latestSnapshot(noteId) != null
     }
 
     // Reset to the latest save as one undoable edit because cancel destroys unsaved draft content.
     fun cancelEdit(noteId: Long): CancelEditResult {
         assert(noteId > 0L)
         val before = requireNote(noteId)
+        check(!before.isTrashed()) { "Trashed notes cannot be edited" }
         val latest = latestSnapshot(noteId) ?: error(
             "Cancel edit requires a latest snapshot",
         )
@@ -75,7 +79,7 @@ class NoteLifecycleService(
 
     // Compare against latest snapshot content because pending changes are not stored separately.
     private fun modeFor(note: Note, latestContent: String?): EditorMode {
-        return if (latestContent != null && note.content == latestContent) EditorMode.View else EditorMode.Edit
+        return if (note.isTrashed() || (latestContent != null && note.content == latestContent)) EditorMode.View else EditorMode.Edit
     }
 
     // Select the newest saved version because only the latest snapshot determines pending changes.
