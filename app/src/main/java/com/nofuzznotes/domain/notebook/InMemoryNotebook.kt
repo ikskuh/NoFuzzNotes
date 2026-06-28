@@ -80,11 +80,12 @@ class InMemoryNotebook(private val clock: Clock) {
 
     // Restore saved content into the draft because historical snapshots themselves must stay immutable.
     fun restoreSnapshot(noteId: Long, snapshotId: Long): NotebookEntry {
-        val note = requireNote(noteId)
-        assert(!note.isTrashed())
+        val entry = entryFor(noteId)
+        assert(!entry.note.isTrashed())
+        check(!entry.hasPendingChanges) { "Restore requires no pending changes" }
         val snapshot = requireSnapshot(noteId, snapshotId)
         val now = clock.now()
-        notes[noteId] = note.copy(content = snapshot.content, edited = now)
+        notes[noteId] = entry.note.copy(content = snapshot.content, edited = now)
         return entryFor(noteId)
     }
 

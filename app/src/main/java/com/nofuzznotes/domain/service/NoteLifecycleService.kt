@@ -79,7 +79,7 @@ class NoteLifecycleService(
     }
 
     // Select the newest saved version because only the latest snapshot determines pending changes.
-    private fun latestSnapshot(noteId: Long) = snapshots.listForNote(noteId).maxByOrNull { it.created }
+    private fun latestSnapshot(noteId: Long) = snapshots.listForNote(noteId).lastOrNull()
 
     // Surface missing notes because lifecycle services should only receive existing identities.
     private fun requireNote(noteId: Long): Note = notes.read(noteId) ?: error("Missing note: $noteId")
