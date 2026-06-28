@@ -8,7 +8,26 @@ enum class UndoDirection {
 }
 
 enum class UndoOperationKind {
-    Replace,
+    Typing,
+    Deletion,
+    Paste,
+    Cut,
+    Replacement,
+    Clear,
+    Autocorrect,
+    CancelEdit,
+    SnapshotRestore,
+}
+
+data class TextSelection(
+    val start: Int,
+    val end: Int,
+) {
+    init {
+        assert(start >= 0)
+        assert(end >= 0)
+        assert(start <= end)
+    }
 }
 
 data class UndoEntry(
@@ -21,6 +40,8 @@ data class UndoEntry(
     val textAfter: String,
     val cursorBefore: Int,
     val cursorAfter: Int,
+    val selectionBefore: TextSelection = TextSelection(cursorBefore, cursorBefore),
+    val selectionAfter: TextSelection = TextSelection(cursorAfter, cursorAfter),
     val created: Instant,
 ) {
     init {
@@ -29,5 +50,11 @@ data class UndoEntry(
         assert(position >= 0)
         assert(cursorBefore >= 0)
         assert(cursorAfter >= 0)
+        assert(cursorBefore <= textBefore.length)
+        assert(cursorAfter <= textAfter.length)
+        assert(selectionBefore.start <= textBefore.length)
+        assert(selectionBefore.end <= textBefore.length)
+        assert(selectionAfter.start <= textAfter.length)
+        assert(selectionAfter.end <= textAfter.length)
     }
 }

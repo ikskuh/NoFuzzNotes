@@ -61,7 +61,7 @@ class NoteLifecycleServiceTest {
     fun saveCreatesSnapshotsAsSpecifiedAndClearsUndoRedo() {
         val fixture = fixture()
         val noteId = fixture.service.createNote().note.id
-        fixture.undoRedo.create(noteId, UndoDirection.Undo, UndoOperationKind.Replace, 0, "", "x", 0, 1)
+        fixture.undoRedo.create(noteId, UndoDirection.Undo, UndoOperationKind.Replacement, 0, "", "x", 0, 1)
         fixture.clock.set(Instant.parse("2026-06-28T10:01:00Z"))
 
         val firstSave = fixture.service.saveNote(noteId)
