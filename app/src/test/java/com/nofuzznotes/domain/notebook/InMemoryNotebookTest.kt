@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.Instant
 
@@ -103,6 +104,18 @@ class InMemoryNotebookTest {
         assertEquals(Instant.parse("2026-06-28T10:03:00Z"), restored.note.edited)
     }
 
+
+    // Verify in-memory restore refuses pending drafts because rollback must not discard unsaved work.
+    @Test
+    fun restoreSnapshotRequiresNoPendingChanges() {
+        val clock = TestClock(Instant.parse("2026-06-28T10:00:00Z"))
+        val notebook = InMemoryNotebook(clock)
+        val noteId = notebook.createNote("Saved").note.id
+        val snapshot = notebook.saveSnapshot(noteId)!!
+        notebook.editDraft(noteId, "Pending")
+
+        assertThrows(IllegalStateException::class.java) { notebook.restoreSnapshot(noteId, snapshot.id) }
+    }
 
     // Verify default listing is newest edited first because note list sorting starts from edited DESC.
     @Test

@@ -25,7 +25,7 @@ class FakeSnapshotRepository(private val clock: Clock) : SnapshotRepository {
     }
 
     // Read by id so services can open a selected saved version.
-    fun read(id: Long): Snapshot? {
+    override fun read(id: Long): Snapshot? {
         assert(id > 0L)
         return snapshots[id]
     }
