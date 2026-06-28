@@ -63,7 +63,7 @@ class NoteLifecycleService(
         val undoEntry = undoRedo.create(
             noteId = noteId,
             direction = UndoDirection.Undo,
-            operationKind = UndoOperationKind.Replace,
+            operationKind = UndoOperationKind.CancelEdit,
             position = 0,
             textBefore = before.content,
             textAfter = after.content,

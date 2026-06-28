@@ -103,6 +103,38 @@ class InMemoryNotebookTest {
         assertEquals(Instant.parse("2026-06-28T10:03:00Z"), restored.note.edited)
     }
 
+
+    // Verify default listing is newest edited first because note list sorting starts from edited DESC.
+    @Test
+    fun listNotesUsesEditedDescendingByDefault() {
+        val clock = TestClock(Instant.parse("2026-06-28T10:00:00Z"))
+        val notebook = InMemoryNotebook(clock)
+        val first = notebook.createNote("First")
+        clock.set(Instant.parse("2026-06-28T10:01:00Z"))
+        val second = notebook.createNote("Second")
+        clock.set(Instant.parse("2026-06-28T10:02:00Z"))
+        val editedFirst = notebook.editDraft(first.note.id, "First edited")
+
+        assertEquals(listOf(editedFirst.note.id, second.note.id), notebook.listNotes().map { it.note.id })
+    }
+
+    // Verify duplicate saves still touch edited because pressing save is persisted user intent.
+    @Test
+    fun duplicateSaveTouchesEditedWithoutCreatingSnapshot() {
+        val clock = TestClock(Instant.parse("2026-06-28T10:00:00Z"))
+        val notebook = InMemoryNotebook(clock)
+        val noteId = notebook.createNote("First").note.id
+        notebook.saveSnapshot(noteId)
+        clock.set(Instant.parse("2026-06-28T10:05:00Z"))
+
+        val duplicate = notebook.saveSnapshot(noteId)
+        val entry = notebook.readNote(noteId)!!
+
+        assertNull(duplicate)
+        assertEquals(Instant.parse("2026-06-28T10:05:00Z"), entry.note.edited)
+        assertEquals(1, entry.snapshots.size)
+    }
+
     // Verify trash lifecycle preserves content and history until permanent destruction.
     @Test
     fun trashUntrashAndDestroyNote() {

@@ -36,10 +36,14 @@ class InMemoryNotebook(private val clock: Clock) {
     }
 
     // List active notes separately because trash is a first-class lifecycle state, not deletion.
-    fun listNotes(): List<NotebookEntry> = notes.values.filter { !it.isTrashed() }.map { entryFor(it.id) }
+    fun listNotes(): List<NotebookEntry> {
+        return notes.values.filter { !it.isTrashed() }.sortedByDescending { it.edited }.map { entryFor(it.id) }
+    }
 
     // List trashed notes separately because recovery must not mix deleted drafts with normal notes.
-    fun listTrash(): List<NotebookEntry> = notes.values.filter { it.isTrashed() }.map { entryFor(it.id) }
+    fun listTrash(): List<NotebookEntry> {
+        return notes.values.filter { it.isTrashed() }.sortedByDescending { it.edited }.map { entryFor(it.id) }
+    }
 
     // Replace the durable draft because edits must be persisted as the user types.
     fun editDraft(noteId: Long, content: String): NotebookEntry {
@@ -55,7 +59,10 @@ class InMemoryNotebook(private val clock: Clock) {
     fun saveSnapshot(noteId: Long): Snapshot? {
         val entry = entryFor(noteId)
         assert(!entry.note.isTrashed())
-        if (!entry.hasPendingChanges) return null
+        if (!entry.hasPendingChanges) {
+            notes[noteId] = entry.note.copy(edited = clock.now())
+            return null
+        }
 
         assert(nextSnapshotId > 0L)
         val now = clock.now()
