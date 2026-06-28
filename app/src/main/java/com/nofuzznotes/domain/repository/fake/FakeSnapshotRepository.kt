@@ -3,13 +3,14 @@ package com.nofuzznotes.domain.repository.fake
 import com.nofuzznotes.core.model.Snapshot
 import com.nofuzznotes.core.text.CoreTextRules
 import com.nofuzznotes.core.time.Clock
+import com.nofuzznotes.domain.repository.SnapshotRepository
 
-class FakeSnapshotRepository(private val clock: Clock) {
+class FakeSnapshotRepository(private val clock: Clock) : SnapshotRepository {
     private val snapshots = linkedMapOf<Long, Snapshot>()
     private var nextId = 1L
 
     // Create immutable history rows because saves must preserve full note text at a point in time.
-    fun create(noteId: Long, content: String): Snapshot {
+    override fun create(noteId: Long, content: String): Snapshot {
         assert(noteId > 0L)
         assert(nextId > 0L)
         val snapshot = Snapshot(
@@ -30,7 +31,7 @@ class FakeSnapshotRepository(private val clock: Clock) {
     }
 
     // List snapshots by note because history belongs to exactly one note.
-    fun listForNote(noteId: Long): List<Snapshot> {
+    override fun listForNote(noteId: Long): List<Snapshot> {
         assert(noteId > 0L)
         return snapshots.values.filter { it.noteId == noteId }.sortedBy { it.created }
     }

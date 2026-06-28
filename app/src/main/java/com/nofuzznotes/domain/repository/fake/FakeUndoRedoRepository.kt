@@ -4,13 +4,14 @@ import com.nofuzznotes.core.model.UndoDirection
 import com.nofuzznotes.core.model.UndoEntry
 import com.nofuzznotes.core.model.UndoOperationKind
 import com.nofuzznotes.core.time.Clock
+import com.nofuzznotes.domain.repository.UndoRedoRepository
 
-class FakeUndoRedoRepository(private val clock: Clock) {
+class FakeUndoRedoRepository(private val clock: Clock) : UndoRedoRepository {
     private val entries = linkedMapOf<Long, UndoEntry>()
     private var nextId = 1L
 
     // Create undo rows in memory because later services need durable edit-stack semantics before Room exists.
-    fun create(
+    override fun create(
         noteId: Long,
         direction: UndoDirection,
         operationKind: UndoOperationKind,
@@ -45,7 +46,7 @@ class FakeUndoRedoRepository(private val clock: Clock) {
     }
 
     // Delete edit-stack rows when a note is permanently destroyed.
-    fun deleteForNote(noteId: Long) {
+    override fun deleteForNote(noteId: Long) {
         assert(noteId > 0L)
         entries.entries.removeIf { it.value.noteId == noteId }
     }
