@@ -5,8 +5,10 @@ import com.nofuzznotes.core.model.TextSelection
 import com.nofuzznotes.core.model.UndoDirection
 import com.nofuzznotes.core.model.UndoEntry
 import com.nofuzznotes.core.model.UndoOperationKind
+import com.nofuzznotes.core.undo.UndoBoundaryDetector
 import com.nofuzznotes.domain.repository.NoteRepository
 import com.nofuzznotes.domain.repository.UndoRedoRepository
+import java.time.Instant
 
 data class TextEdit(
     val operationKind: UndoOperationKind,
@@ -17,6 +19,7 @@ data class TextEdit(
     val cursorAfter: Int,
     val selectionBefore: TextSelection = TextSelection(cursorBefore, cursorBefore),
     val selectionAfter: TextSelection = TextSelection(cursorAfter, cursorAfter),
+    val timestamp: Instant? = null,
 ) {
     init {
         assert(position >= 0)
@@ -36,6 +39,7 @@ data class UndoRedoResult(
 class UndoRedoService(
     private val notes: NoteRepository,
     private val undoRedo: UndoRedoRepository,
+    private val boundaryDetector: UndoBoundaryDetector = UndoBoundaryDetector(),
 ) {
     // Record a new user edit because draft persistence and undo persistence must happen together.
     fun recordEdit(noteId: Long, edit: TextEdit): UndoEntry {
@@ -43,6 +47,23 @@ class UndoRedoService(
         assert(notes.read(noteId)?.content == edit.textBefore)
         notes.updateContent(noteId, edit.textAfter)
         undoRedo.deleteForNote(noteId, UndoDirection.Redo)
+        val previous = undoRedo.peek(noteId, UndoDirection.Undo)
+        if (boundaryDetector.shouldGroup(previous, edit)) {
+            val groupedPrevious = previous ?: error("Grouped edit requires a previous undo entry")
+            undoRedo.pop(noteId, UndoDirection.Undo)
+            return undoRedo.create(
+                noteId = noteId,
+                direction = UndoDirection.Undo,
+                operationKind = groupedPrevious.operationKind,
+                position = groupedPrevious.position,
+                textBefore = groupedPrevious.textBefore,
+                textAfter = edit.textAfter,
+                cursorBefore = groupedPrevious.cursorBefore,
+                cursorAfter = edit.cursorAfter,
+                selectionBefore = groupedPrevious.selectionBefore,
+                selectionAfter = edit.selectionAfter,
+            )
+        }
         return undoRedo.create(
             noteId = noteId,
             direction = UndoDirection.Undo,

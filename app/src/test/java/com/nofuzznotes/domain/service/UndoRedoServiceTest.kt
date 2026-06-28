@@ -69,6 +69,41 @@ class UndoRedoServiceTest {
         assertEquals(emptyList<Nothing>(), fixture.undoRedo.listForNote(noteId, UndoDirection.Redo))
     }
 
+
+    // Verify grouped typing creates one durable undo row because the boundary detector owns edit coalescing.
+    @Test
+    fun continuousTypingGroupsIntoOneUndoOperation() {
+        val fixture = fixture()
+        val noteId = fixture.lifecycle.createNote().note.id
+        val start = Instant.parse("2026-06-28T10:00:00Z")
+
+        fixture.undoRedoService.recordEdit(noteId, edit(UndoOperationKind.Typing, "", "a", 0, 1, timestamp = start))
+        fixture.undoRedoService.recordEdit(noteId, edit(UndoOperationKind.Typing, "a", "ab", 1, 2, timestamp = start.plusMillis(100)))
+
+        val stack = fixture.undoRedo.listForNote(noteId, UndoDirection.Undo)
+        assertEquals(1, stack.size)
+        assertEquals("", stack.single().textBefore)
+        assertEquals("ab", stack.single().textAfter)
+    }
+
+
+    // Verify grouped deletion creates one durable undo row because repeated backspace should restore the whole run.
+    @Test
+    fun continuousDeletionGroupsIntoOneUndoOperation() {
+        val fixture = fixture()
+        val noteId = fixture.lifecycle.createNote().note.id
+        val start = Instant.parse("2026-06-28T10:00:00Z")
+        fixture.lifecycle.editDraft(noteId, "abc")
+
+        fixture.undoRedoService.recordEdit(noteId, edit(UndoOperationKind.Deletion, "abc", "ab", 3, 2, timestamp = start))
+        fixture.undoRedoService.recordEdit(noteId, edit(UndoOperationKind.Deletion, "ab", "a", 2, 1, timestamp = start.plusMillis(100)))
+
+        val stack = fixture.undoRedo.listForNote(noteId, UndoDirection.Undo)
+        assertEquals(1, stack.size)
+        assertEquals("abc", stack.single().textBefore)
+        assertEquals("a", stack.single().textAfter)
+    }
+
     // Verify save clears both stacks because explicit save ends the edit history window.
     @Test
     fun saveClearsUndoRedo() {
@@ -202,5 +237,6 @@ class UndoRedoServiceTest {
         cursorAfter: Int,
         selectionBefore: TextSelection = TextSelection(cursorBefore, cursorBefore),
         selectionAfter: TextSelection = TextSelection(cursorAfter, cursorAfter),
-    ) = TextEdit(kind, 0, before, after, cursorBefore, cursorAfter, selectionBefore, selectionAfter)
+        timestamp: Instant? = null,
+    ) = TextEdit(kind, 0, before, after, cursorBefore, cursorAfter, selectionBefore, selectionAfter, timestamp)
 }
