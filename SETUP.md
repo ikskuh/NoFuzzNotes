@@ -34,6 +34,37 @@ Install the required Android packages:
 sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 ```
 
+For a clean Linux environment without an Android SDK, this copy-pastable setup installs the command-line tools, accepts SDK licenses, installs the required packages, and writes `local.properties` for this checkout:
+
+```bash
+set -euo pipefail
+
+SDK_ROOT="$HOME/Android/Sdk"
+CMDLINE_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"
+TMP_DIR="$(mktemp -d)"
+
+mkdir -p "$SDK_ROOT/cmdline-tools"
+cd "$TMP_DIR"
+curl -fL -o commandlinetools-linux.zip "$CMDLINE_TOOLS_URL"
+unzip -q commandlinetools-linux.zip
+rm -rf "$SDK_ROOT/cmdline-tools/latest"
+mv cmdline-tools "$SDK_ROOT/cmdline-tools/latest"
+
+export ANDROID_HOME="$SDK_ROOT"
+export ANDROID_SDK_ROOT="$SDK_ROOT"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+set +o pipefail
+yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses >/dev/null
+yes | sdkmanager --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+set -o pipefail
+
+cd /workspace/NoFuzzNotes
+printf 'sdk.dir=%s\n' "$SDK_ROOT" > local.properties
+
+gradle testDebugUnitTest --no-daemon
+```
+
 ## Build and Test
 
 Run the JVM unit test suite:
