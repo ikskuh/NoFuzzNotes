@@ -3,13 +3,14 @@ package com.nofuzznotes.domain.repository.fake
 import com.nofuzznotes.core.model.Note
 import com.nofuzznotes.core.text.CoreTextRules
 import com.nofuzznotes.core.time.Clock
+import com.nofuzznotes.domain.repository.NoteRepository
 
-class FakeNoteRepository(private val clock: Clock) {
+class FakeNoteRepository(private val clock: Clock) : NoteRepository {
     private val notes = linkedMapOf<Long, Note>()
     private var nextId = 1L
 
     // Create an empty durable row because a new note must exist before it has user content.
-    fun createEmpty(): Note {
+    override fun createEmpty(): Note {
         assert(nextId > 0L)
         val now = clock.now()
         val note = Note(id = nextId, content = "", created = now, edited = now, deleted = null)
@@ -19,7 +20,7 @@ class FakeNoteRepository(private val clock: Clock) {
     }
 
     // Read by id so services can reload a note aggregate without database dependencies.
-    fun read(id: Long): Note? {
+    override fun read(id: Long): Note? {
         assert(id > 0L)
         return notes[id]
     }
@@ -31,9 +32,18 @@ class FakeNoteRepository(private val clock: Clock) {
     fun listTrash(): List<Note> = notes.values.filter { it.isTrashed() }.sortedByDescending { it.edited }
 
     // Replace draft content and edited time because draft persistence happens at the repository boundary.
-    fun updateContent(id: Long, content: String): Note {
+    override fun updateContent(id: Long, content: String): Note {
         val note = requireNote(id)
         val updated = note.copy(content = CoreTextRules.normalizeLf(content), edited = clock.now())
+        notes[id] = updated
+        return updated
+    }
+
+    // Update edited without content changes because pressing save is itself a persisted note event.
+    override fun touchEdited(id: Long): Note {
+        assert(id > 0L)
+        val note = requireNote(id)
+        val updated = note.copy(edited = clock.now())
         notes[id] = updated
         return updated
     }
