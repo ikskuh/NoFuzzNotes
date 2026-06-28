@@ -2,6 +2,7 @@
 
 - Application specification is in [SPEC.md](./SPEC.md)
 - Software architecture is in [ARCH.md](./ARCH.md)
+- Development environment setup is in [SETUP.md](./SETUP.md)
 - Always consult these documents when something is unclear
 - Never implement more than a single increment
 - Always complete an increment end-to-end unless something is unclear and requires resolution
