@@ -37,7 +37,7 @@ class FakeSnapshotRepository(private val clock: Clock) : SnapshotRepository {
     }
 
     // Delete note history when a note is permanently destroyed.
-    fun deleteForNote(noteId: Long) {
+    override fun deleteForNote(noteId: Long) {
         assert(noteId > 0L)
         snapshots.entries.removeIf { it.value.noteId == noteId }
     }

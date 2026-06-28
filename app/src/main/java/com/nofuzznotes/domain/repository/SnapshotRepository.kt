@@ -11,4 +11,7 @@ interface SnapshotRepository {
 
     // List snapshots oldest-first because callers need stable save order when timestamps tie.
     fun listForNote(noteId: Long): List<Snapshot>
+
+    // Delete note history because destroyed notes must leave no saved versions behind.
+    fun deleteForNote(noteId: Long)
 }

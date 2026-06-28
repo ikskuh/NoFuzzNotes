@@ -26,10 +26,10 @@ class FakeNoteRepository(private val clock: Clock) : NoteRepository {
     }
 
     // Return active notes newest-edited first because that is the default notebook list order.
-    fun listNormal(): List<Note> = notes.values.filter { !it.isTrashed() }.sortedByDescending { it.edited }
+    override fun listNormal(): List<Note> = notes.values.filter { !it.isTrashed() }.sortedByDescending { it.edited }
 
     // Return trashed notes separately because deletion is recoverable state in the domain.
-    fun listTrash(): List<Note> = notes.values.filter { it.isTrashed() }.sortedByDescending { it.edited }
+    override fun listTrash(): List<Note> = notes.values.filter { it.isTrashed() }.sortedByDescending { it.edited }
 
     // Replace draft content and edited time because draft persistence happens at the repository boundary.
     override fun updateContent(id: Long, content: String): Note {
@@ -49,7 +49,7 @@ class FakeNoteRepository(private val clock: Clock) : NoteRepository {
     }
 
     // Mark a note as trashed without changing edited because trash state has its own timestamp.
-    fun markDeleted(id: Long): Note {
+    override fun markDeleted(id: Long): Note {
         val note = requireNote(id)
         assert(!note.isTrashed())
         val updated = note.copy(deleted = clock.now())
@@ -58,7 +58,7 @@ class FakeNoteRepository(private val clock: Clock) : NoteRepository {
     }
 
     // Clear trash state without changing edited because recovery should not reorder content by itself.
-    fun clearDeleted(id: Long): Note {
+    override fun clearDeleted(id: Long): Note {
         val note = requireNote(id)
         assert(note.isTrashed())
         val updated = note.copy(deleted = null)
@@ -67,7 +67,7 @@ class FakeNoteRepository(private val clock: Clock) : NoteRepository {
     }
 
     // Remove a note row because permanent destruction is a repository-level lifecycle operation.
-    fun destroy(id: Long) {
+    override fun destroy(id: Long) {
         assert(id > 0L)
         assert(notes.containsKey(id))
         notes.remove(id)
