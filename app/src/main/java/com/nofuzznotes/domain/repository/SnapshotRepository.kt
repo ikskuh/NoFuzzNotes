@@ -9,6 +9,6 @@ interface SnapshotRepository {
     // Read by id because history actions operate on a selected immutable save.
     fun read(id: Long): Snapshot?
 
-    // List snapshots by note because history belongs to exactly one note.
+    // List snapshots oldest-first because callers need stable save order when timestamps tie.
     fun listForNote(noteId: Long): List<Snapshot>
 }

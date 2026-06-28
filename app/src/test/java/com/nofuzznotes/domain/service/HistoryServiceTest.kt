@@ -31,6 +31,21 @@ class HistoryServiceTest {
         assertEquals(listOf("Second", "First"), result.map { it.title })
     }
 
+    // Verify equal timestamps still use save order because multiple saves can happen in one second.
+    @Test
+    fun snapshotsWithSameTimestampUseNewestSaveFirst() {
+        val fixture = fixture()
+        val noteId = fixture.lifecycle.createNote().note.id
+        fixture.lifecycle.editDraft(noteId, "First")
+        val first = fixture.lifecycle.saveNote(noteId).createdSnapshot!!
+        fixture.lifecycle.editDraft(noteId, "Second")
+        val second = fixture.lifecycle.saveNote(noteId).createdSnapshot!!
+
+        val result = fixture.history.listSnapshotsNewestFirst(noteId)
+
+        assertEquals(listOf(second.id, first.id), result.map { it.id })
+    }
+
     // Verify an empty first line stays empty because snapshot titles must not invent fallback text.
     @Test
     fun emptySnapshotTitleRemainsEmpty() {

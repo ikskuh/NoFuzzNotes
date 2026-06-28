@@ -81,8 +81,9 @@ class UndoRedoService(
     // Undo the top entry because the persisted undo stack is the source of editor recovery state.
     fun undo(noteId: Long, currentMode: EditorMode): UndoRedoResult {
         assert(noteId > 0L)
+        val available = undoRedo.peek(noteId, UndoDirection.Undo) ?: error("Undo requires an available undo entry")
+        check(canReplayUndoInMode(currentMode, available.operationKind)) { "Undo is not available in mode $currentMode" }
         val entry = undoRedo.pop(noteId, UndoDirection.Undo) ?: error("Undo requires an available undo entry")
-        assert(currentMode == EditorMode.Edit || entry.operationKind == UndoOperationKind.CancelEdit)
         val note = notes.updateContent(noteId, entry.textBefore)
         val redoEntry = copyToDirection(entry, UndoDirection.Redo)
         return UndoRedoResult(
@@ -97,7 +98,7 @@ class UndoRedoService(
     // Redo the top entry because redo must reapply exactly the operation that undo removed.
     fun redo(noteId: Long, currentMode: EditorMode): UndoRedoResult {
         assert(noteId > 0L)
-        assert(currentMode == EditorMode.Edit)
+        check(currentMode == EditorMode.Edit) { "Redo is not available in mode $currentMode" }
         val entry = undoRedo.pop(noteId, UndoDirection.Redo) ?: error("Redo requires an available redo entry")
         val note = notes.updateContent(noteId, entry.textAfter)
         val undoEntry = copyToDirection(entry, UndoDirection.Undo)
@@ -115,7 +116,7 @@ class UndoRedoService(
     fun canUndo(noteId: Long, mode: EditorMode): Boolean {
         assert(noteId > 0L)
         val entry = undoRedo.peek(noteId, UndoDirection.Undo) ?: return false
-        return mode == EditorMode.Edit || entry.operationKind == UndoOperationKind.CancelEdit
+        return canReplayUndoInMode(mode, entry.operationKind)
     }
 
     // Report redo availability from mode because normal redo belongs to the editable surface.
@@ -128,6 +129,11 @@ class UndoRedoService(
     fun clearForSave(noteId: Long) {
         assert(noteId > 0L)
         undoRedo.deleteForNote(noteId)
+    }
+
+    // Allow only draft edit/view modes because snapshot view is not the draft editor undo surface.
+    private fun canReplayUndoInMode(mode: EditorMode, operationKind: UndoOperationKind): Boolean {
+        return mode == EditorMode.Edit || (mode == EditorMode.View && operationKind == UndoOperationKind.CancelEdit)
     }
 
     // Reinsert an operation on the opposite stack because stack movement must keep operation details intact.

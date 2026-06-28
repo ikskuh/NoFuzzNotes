@@ -30,7 +30,7 @@ class FakeSnapshotRepository(private val clock: Clock) : SnapshotRepository {
         return snapshots[id]
     }
 
-    // List snapshots by note because history belongs to exactly one note.
+    // List snapshots oldest-first because history order must remain stable when timestamps tie.
     override fun listForNote(noteId: Long): List<Snapshot> {
         assert(noteId > 0L)
         return snapshots.values.filter { it.noteId == noteId }.sortedBy { it.created }

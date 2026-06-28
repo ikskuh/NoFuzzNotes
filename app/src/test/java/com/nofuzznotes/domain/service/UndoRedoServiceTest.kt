@@ -10,6 +10,7 @@ import com.nofuzznotes.domain.repository.fake.FakeUndoRedoRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.time.Instant
 
@@ -187,7 +188,32 @@ class UndoRedoServiceTest {
         assertFalse(fixture.undoRedoService.canUndo(noteId, EditorMode.Edit))
     }
 
-    // Verify cancel edit is the only view-mode undo and controls edit/view transitions when replayed.
+    // Verify snapshot view never exposes draft undo because historical content is read-only.
+    @Test
+    fun snapshotViewDoesNotAllowUndo() {
+        val fixture = fixture()
+        val noteId = fixture.lifecycle.createNote().note.id
+        fixture.undoRedoService.recordEdit(noteId, edit(UndoOperationKind.Typing, "", "a", 0, 1))
+
+        assertFalse(fixture.undoRedoService.canUndo(noteId, EditorMode.ViewSnapshot))
+        assertThrows(IllegalStateException::class.java) { fixture.undoRedoService.undo(noteId, EditorMode.ViewSnapshot) }
+        assertTrue(fixture.undoRedoService.canUndo(noteId, EditorMode.Edit))
+    }
+
+    // Verify snapshot view never exposes draft redo because historical content is read-only.
+    @Test
+    fun snapshotViewDoesNotAllowRedo() {
+        val fixture = fixture()
+        val noteId = fixture.lifecycle.createNote().note.id
+        fixture.undoRedoService.recordEdit(noteId, edit(UndoOperationKind.Typing, "", "a", 0, 1))
+        fixture.undoRedoService.undo(noteId, EditorMode.Edit)
+
+        assertFalse(fixture.undoRedoService.canRedo(noteId, EditorMode.ViewSnapshot))
+        assertThrows(IllegalStateException::class.java) { fixture.undoRedoService.redo(noteId, EditorMode.ViewSnapshot) }
+        assertTrue(fixture.undoRedoService.canRedo(noteId, EditorMode.Edit))
+    }
+
+    // Verify cancel edit is the only draft view-mode undo and controls edit/view transitions when replayed.
     @Test
     fun cancelEditUndoRedoModeRules() {
         val fixture = fixture()

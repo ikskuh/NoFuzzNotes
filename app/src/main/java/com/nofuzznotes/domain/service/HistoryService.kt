@@ -85,13 +85,13 @@ class HistoryService(
         return latest != null && note.content == latest.content
     }
 
-    // List newest first because history is a reverse-chronological save log.
+    // List newest first by repository save order because multiple saves may share one timestamp.
     fun listSnapshotsNewestFirst(noteId: Long): List<SnapshotListItem> {
         assert(noteId > 0L)
         val note = requireNote(noteId)
         val latest = latestSnapshot(noteId) ?: error("History requires at least one snapshot")
         check(note.content == latest.content) { "History requires no pending changes" }
-        return snapshots.listForNote(noteId).sortedByDescending { it.created }.map {
+        return snapshots.listForNote(noteId).asReversed().map {
             SnapshotListItem(id = it.id, noteId = it.noteId, title = it.title, created = it.created)
         }
     }
