@@ -58,7 +58,7 @@ class RoomRecoverableDatabase(
 
     // Build the Room database because recovery checks need the same storage stack as normal app usage.
     private fun openDatabase(): NoFuzzNotesDatabase {
-        return Room.databaseBuilder(context, NoFuzzNotesDatabase::class.java, databaseName).build()
+        return Room.databaseBuilder(context, NoFuzzNotesDatabase::class.java, databaseName).allowMainThreadQueries().build()
     }
 
     // Remove sidecar files because database reset must leave no stale SQLite state behind.
