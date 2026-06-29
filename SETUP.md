@@ -65,6 +65,130 @@ printf 'sdk.dir=%s\n' "$SDK_ROOT" > local.properties
 gradle testDebugUnitTest --no-daemon
 ```
 
+## Instrumented Test Emulator Setup
+
+Increment 11 adds Room integration tests under `app/src/androidTest`. These tests need an Android emulator or device because Room is an Android library.
+
+The app's oldest supported Android version is API 26, from `minSdk = 26`. Use API 26 when validating minimum-version behavior.
+
+For a clean Linux environment, this copy-pastable setup installs the emulator, API 26 platform, and a lightweight API 26 system image:
+
+```bash
+set -euo pipefail
+
+SDK_ROOT="${ANDROID_HOME:-$HOME/Android/Sdk}"
+export ANDROID_HOME="$SDK_ROOT"
+export ANDROID_SDK_ROOT="$SDK_ROOT"
+export PATH="$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+set +o pipefail
+yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses >/dev/null
+yes | sdkmanager --sdk_root="$SDK_ROOT" \
+  "emulator" \
+  "platforms;android-26" \
+  "system-images;android-26;default;x86_64"
+set -o pipefail
+
+echo no | avdmanager create avd \
+  -n nofuzz_api26 \
+  -k "system-images;android-26;default;x86_64" \
+  --device pixel \
+  --force
+```
+
+Start the emulator headlessly:
+
+```bash
+set -euo pipefail
+
+SDK_ROOT="${ANDROID_HOME:-$HOME/Android/Sdk}"
+export ANDROID_HOME="$SDK_ROOT"
+export ANDROID_SDK_ROOT="$SDK_ROOT"
+export PATH="$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+emulator -avd nofuzz_api26 \
+  -no-window \
+  -no-audio \
+  -no-boot-anim \
+  -gpu swiftshader_indirect \
+  -no-snapshot \
+  -no-accel &
+
+adb wait-for-device
+
+for attempt in $(seq 1 180); do
+  if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; then
+    echo "emulator booted"
+    break
+  fi
+  sleep 2
+done
+
+if [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != "1" ]; then
+  echo "emulator did not boot in time" >&2
+  exit 1
+fi
+
+adb shell input keyevent 82 || true
+```
+
+If the host has `/dev/kvm`, remove `-no-accel` for much faster emulator startup. If the host has no `/dev/kvm`, keep `-no-accel`; the emulator can still run, but Gradle's device detection may time out on slow software emulation.
+
+Linux containers may also need graphics libraries before the emulator can start headlessly. Install them with:
+
+```bash
+apt-get update
+apt-get install -y \
+  libx11-xcb1 \
+  libxcb1 \
+  libxcb-render0 \
+  libxcb-shape0 \
+  libxcb-xfixes0 \
+  libxrender1 \
+  libxi6 \
+  libxext6 \
+  libgl1
+```
+
+## Running Instrumented Tests
+
+Prefer the Gradle task when the emulator is hardware-accelerated and responsive:
+
+```bash
+gradle connectedDebugAndroidTest
+```
+
+On slow software-emulated containers, Gradle/ddmlib may report the API 26 emulator as `Unknown API Level` even after boot. In that case, build and run the instrumented APK manually:
+
+```bash
+set -euo pipefail
+
+SDK_ROOT="${ANDROID_HOME:-$HOME/Android/Sdk}"
+export ANDROID_HOME="$SDK_ROOT"
+export ANDROID_SDK_ROOT="$SDK_ROOT"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+gradle assembleDebug assembleDebugAndroidTest
+
+adb install -r -g app/build/outputs/apk/debug/app-debug.apk
+adb install -r -g app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r com.nofuzznotes.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Expected successful output ends with:
+
+```text
+OK (13 tests)
+```
+
+Stop the emulator after the run:
+
+```bash
+adb emu kill
+```
+
+Future agents should use the instrumented path for any code that depends on Android runtime behavior, especially Room database behavior in `app/src/androidTest/java/com/nofuzznotes/data/room`. JVM tests remain sufficient for pure Kotlin domain and service behavior in `app/src/test`.
+
 ## Build and Test
 
 Run the JVM unit test suite:
@@ -79,11 +203,11 @@ Build debug and release variants:
 gradle assembleDebug assembleRelease
 ```
 
-The project currently contains the Increment 0 skeleton only. Domain behavior and UI behavior are intentionally added in later increments.
+The project currently contains the core increments through Room-backed persistence. UI behavior is intentionally added in later increments.
 
 ## Continuous Integration
 
-GitHub Actions runs the same Increment 0 checks on pull requests and pushes to `main`:
+GitHub Actions runs the JVM and build checks on pull requests and pushes to `main`:
 
 ```bash
 gradle testDebugUnitTest --no-daemon
