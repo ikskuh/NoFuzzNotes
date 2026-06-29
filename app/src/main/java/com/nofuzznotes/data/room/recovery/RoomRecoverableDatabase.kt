@@ -1,7 +1,6 @@
 package com.nofuzznotes.data.room.recovery
 
 import android.content.Context
-import android.database.sqlite.SQLiteException
 import androidx.room.Room
 import com.nofuzznotes.data.room.NoFuzzNotesDatabase
 import com.nofuzznotes.data.room.RoomDatabaseExporter
@@ -14,11 +13,13 @@ class RoomRecoverableDatabase(
 ) : RecoverableDatabase {
     // Open and probe Room because building the database object alone does not prove SQLite usability.
     override fun openFresh(): Boolean {
+        val databaseFile = context.getDatabasePath(databaseName)
+        if (hasInvalidSqliteHeader(databaseFile)) return false
         val database = openDatabase()
         try {
             database.query("SELECT 1", emptyArray()).close()
             return true
-        } catch (exception: SQLiteException) {
+        } catch (exception: RuntimeException) {
             return false
         } finally {
             database.close()
@@ -39,6 +40,19 @@ class RoomRecoverableDatabase(
         deleteSidecar("-shm")
         val opened = openFresh()
         assert(opened)
+    }
+
+    // Reject non-SQLite files before Room can replace them because recovery must preserve corrupt bytes for export.
+    private fun hasInvalidSqliteHeader(databaseFile: File): Boolean {
+        if (!databaseFile.exists()) return false
+        val expected = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
+        if (databaseFile.length() < expected.size) return true
+        val actual = ByteArray(expected.size)
+        databaseFile.inputStream().use { input ->
+            val read = input.read(actual)
+            assert(read == expected.size)
+        }
+        return !actual.contentEquals(expected)
     }
 
     // Build the Room database because recovery checks need the same storage stack as normal app usage.

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.nofuzznotes.core.model.Note
 import com.nofuzznotes.core.model.Snapshot
@@ -40,27 +41,39 @@ class ComposeShellTest {
     }
 
     @Test
-    fun noteListToolbarActionsMatchSelectionState() {
-        // Verify normal-list actions are controlled by selection state rather than row content.
+    fun noteListToolbarActionsHideSelectionActionsWithoutSelection() {
+        // Verify normal-list selection actions stay hidden until a row is selected.
         compose.setContent { NoFuzzNotesTheme { NoteListScreen(noteListState(canSelect = false), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) } }
+
         compose.onNodeWithText("Delete").assertDoesNotExist()
         compose.onNodeWithText("Export").assertDoesNotExist()
         compose.onNodeWithText("Share").assertDoesNotExist()
+    }
 
+    @Test
+    fun noteListToolbarActionsShowSelectionActionsWithSelection() {
+        // Verify normal-list actions are controlled by selection state rather than row content.
         compose.setContent { NoFuzzNotesTheme { NoteListScreen(noteListState(canSelect = true), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) } }
+
         compose.onNodeWithText("Delete").assertIsEnabled()
         compose.onNodeWithText("Export").assertIsEnabled()
         compose.onNodeWithText("Share").assertIsEnabled()
     }
 
     @Test
-    fun trashToolbarActionsMatchSelectionState() {
+    fun trashToolbarActionsHideSelectionActionsWithoutSelection() {
         // Verify trash actions stay unavailable until a trashed note is selected.
         compose.setContent { NoFuzzNotesTheme { TrashListScreen(trashState(false), {}, {}, {}, {}, {}, {}, {}, {}, {}) } }
+
         compose.onNodeWithText("Destroy").assertDoesNotExist()
         compose.onNodeWithText("Restore").assertDoesNotExist()
+    }
 
+    @Test
+    fun trashToolbarActionsShowSelectionActionsWithSelection() {
+        // Verify trash actions are controlled by selection state rather than row content.
         compose.setContent { NoFuzzNotesTheme { TrashListScreen(trashState(true), {}, {}, {}, {}, {}, {}, {}, {}, {}) } }
+
         compose.onNodeWithText("Destroy").assertIsEnabled()
         compose.onNodeWithText("Restore").assertIsEnabled()
     }
@@ -73,7 +86,7 @@ class ComposeShellTest {
 
         compose.onNodeWithText(PromptMessages.RESET_DATABASE).assertIsDisplayed()
         compose.onNodeWithText("OK").assertIsNotEnabled()
-        compose.onNodeWithText("I'm sure").performClick()
+        compose.onNodeWithTag("safe-check").performClick()
         compose.onNodeWithText("OK").assertIsEnabled()
     }
 
