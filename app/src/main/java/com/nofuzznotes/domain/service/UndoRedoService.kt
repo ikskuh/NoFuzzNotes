@@ -44,7 +44,9 @@ class UndoRedoService(
     // Record a new user edit because draft persistence and undo persistence must happen together.
     fun recordEdit(noteId: Long, edit: TextEdit): UndoEntry {
         assert(noteId > 0L)
-        assert(notes.read(noteId)?.content == edit.textBefore)
+        val existing = notes.read(noteId) ?: error("Missing note: $noteId")
+        check(!existing.isTrashed()) { "Trashed notes cannot be edited" }
+        assert(existing.content == edit.textBefore)
         notes.updateContent(noteId, edit.textAfter)
         undoRedo.deleteForNote(noteId, UndoDirection.Redo)
         val previous = undoRedo.peek(noteId, UndoDirection.Undo)

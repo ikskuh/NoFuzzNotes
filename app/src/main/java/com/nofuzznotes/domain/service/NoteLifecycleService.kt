@@ -63,6 +63,7 @@ class NoteLifecycleService(
         val latest = latestSnapshot(noteId) ?: error(
             "Cancel edit requires a latest snapshot",
         )
+        undoRedo.deleteForNote(noteId, UndoDirection.Redo)
         val after = notes.updateContent(noteId, latest.content)
         val undoEntry = undoRedo.create(
             noteId = noteId,
