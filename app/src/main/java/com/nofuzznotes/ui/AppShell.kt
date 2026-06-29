@@ -2,7 +2,6 @@ package com.nofuzznotes.ui
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -14,9 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import com.nofuzznotes.data.room.RoomNoteRepository
 import com.nofuzznotes.data.room.RoomSnapshotRepository
@@ -38,6 +34,7 @@ import com.nofuzznotes.presentation.list.NoteListViewModel
 import com.nofuzznotes.presentation.recovery.RecoveryViewModel
 import com.nofuzznotes.presentation.search.SearchViewModel
 import com.nofuzznotes.presentation.trash.TrashListViewModel
+import com.nofuzznotes.ui.editor.EditorTextSurface
 import java.time.LocalDate
 
 class AppDependencies(
@@ -143,7 +140,7 @@ private fun RecoveryRoute(dependencies: AppDependencies, navigate: (AppRoute) ->
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditorRoute(dependencies: AppDependencies, noteId: Long, snapshotId: Long?, navigate: (AppRoute) -> Unit) {
-    // Provide a simple editor surface because final text editing ergonomics belong to the next increment.
+    // Bind the final editor adapter here because the route must stay state/effect driven.
     val viewModel = remember(noteId, snapshotId) { EditorViewModel(noteId, snapshotId, dependencies.lifecycle, dependencies.undoRedo, dependencies.trash, dependencies.history, dependencies.export) }
     val state by viewModel.state.collectAsState()
     LaunchedEffect(viewModel) { collectNavigation(viewModel.effects, navigate) }
@@ -161,9 +158,12 @@ private fun EditorRoute(dependencies: AppDependencies, noteId: Long, snapshotId:
             if (state.canOpenHistory) TextButton(onClick = viewModel::openHistory) { Text("History") }
         })
     }) { padding ->
-        Column(Modifier.padding(padding)) {
-            OutlinedTextField(value = state.content, onValueChange = viewModel::textChanged, enabled = state.canSave, modifier = Modifier.testTag("editor-text"))
-        }
+        EditorTextSurface(
+            content = state.content,
+            mode = state.mode,
+            onTextEdit = { event -> viewModel.textEdited(event.before, event.after, event.selectionBefore, event.selectionAfter) },
+            modifier = androidx.compose.ui.Modifier.padding(padding),
+        )
     }
     PromptDialog(state.prompt, {
         when (state.prompt?.kind) {
