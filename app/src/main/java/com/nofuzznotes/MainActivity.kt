@@ -18,6 +18,7 @@ import com.nofuzznotes.domain.service.TitleSearchService
 import com.nofuzznotes.domain.service.TrashService
 import com.nofuzznotes.domain.service.UndoRedoService
 import com.nofuzznotes.ui.AppDependencies
+import com.nofuzznotes.ui.DebugExceptionReporter
 import com.nofuzznotes.ui.NoFuzzNotesApp
 import com.nofuzznotes.ui.buildExportService
 
@@ -25,6 +26,7 @@ class MainActivity : ComponentActivity() {
     // Start the Compose shell with Room-backed services because UI must consume presentation state only.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DebugExceptionReporter.install(this)
         val recovery = RoomRecoverableDatabase(applicationContext, DatabaseName)
         val startInRecovery = !recovery.openFresh()
         val dependencies = buildDependencies(recovery)

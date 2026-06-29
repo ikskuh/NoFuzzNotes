@@ -3,6 +3,7 @@ package com.nofuzznotes.data.room.recovery
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import com.nofuzznotes.data.room.NoFuzzNotesDatabase
 import com.nofuzznotes.data.room.RoomNoteRepository
 import com.nofuzznotes.core.time.TestClock
@@ -32,6 +33,19 @@ class RoomRecoverableDatabaseTest {
         val recovery = RoomRecoverableDatabase(context, dbName)
 
         assertTrue(recovery.openFresh())
+    }
+
+
+    // Verify startup probing works on the UI thread because MainActivity performs recovery routing during onCreate.
+    @Test
+    fun validDatabaseOpensSuccessfullyOnMainThread() {
+        var opened = false
+
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            opened = RoomRecoverableDatabase(context, dbName).openFresh()
+        }
+
+        assertTrue(opened)
     }
 
     // Verify a zero-byte placeholder is treated as first launch because SQLite has not created user data yet.
