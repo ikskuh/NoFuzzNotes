@@ -5,7 +5,10 @@ import com.nofuzznotes.core.model.Note
 import com.nofuzznotes.domain.repository.NoteRepository
 import com.nofuzznotes.domain.service.TitleSearchService
 import com.nofuzznotes.domain.service.TrashService
+import com.nofuzznotes.presentation.common.AppRoute
+import com.nofuzznotes.presentation.common.EffectBuffer
 import com.nofuzznotes.presentation.common.NoteSortMode
+import com.nofuzznotes.presentation.common.PresentationEffect
 import com.nofuzznotes.presentation.common.PromptKind
 import com.nofuzznotes.presentation.common.PromptMessages
 import com.nofuzznotes.presentation.common.PromptState
@@ -30,8 +33,10 @@ class TrashListViewModel(
     private val titleSearch: TitleSearchService,
     private val trash: TrashService,
 ) : ViewModel() {
+    private val effectBuffer = EffectBuffer()
     private val mutableState = MutableStateFlow(TrashListState())
     val state: StateFlow<TrashListState> = mutableState
+    val effects = effectBuffer.effects
 
     init { refresh() }
 
@@ -59,6 +64,12 @@ class TrashListViewModel(
     fun selectNote(noteId: Long?) {
         assert(noteId == null || noteId > 0L)
         mutableState.value = mutableState.value.withSelection(noteId)
+    }
+
+    // Navigate to a read-only deleted draft because trashed notes remain viewable.
+    fun openTrashedNote(noteId: Long) {
+        assert(noteId > 0L)
+        effectBuffer.emit(PresentationEffect.Navigate(AppRoute.Editor(noteId)))
     }
 
     // Ask for a safe confirmation because empty trash is irreversible for every trashed note.

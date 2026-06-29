@@ -35,6 +35,7 @@ data class EditorState(
     val canOpenHistory: Boolean = false,
     val canExport: Boolean = true,
     val canShare: Boolean = true,
+    val isTrashed: Boolean = false,
     val prompt: PromptState? = null,
 )
 
@@ -63,6 +64,11 @@ class EditorViewModel(
             return
         }
         val result = lifecycle.openNote(noteId)
+        if (result.note.isTrashed()) {
+            val trashResult = trash.openTrashedNote(noteId)
+            setContent(trashResult.displayedContent.content, trashResult.mode, isTrashed = true)
+            return
+        }
         setContent(result.note.content, result.mode)
     }
 
@@ -168,21 +174,22 @@ class EditorViewModel(
     fun dismissPrompt() { mutableState.value = mutableState.value.copy(prompt = null) }
 
     // Store editor state atomically because toolbar flags depend on content mode.
-    private fun setContent(content: String, mode: EditorMode, snapshotId: Long? = null, prompt: PromptState? = mutableState.value.prompt) {
+    private fun setContent(content: String, mode: EditorMode, snapshotId: Long? = null, isTrashed: Boolean = mutableState.value.isTrashed, prompt: PromptState? = mutableState.value.prompt) {
         mutableState.value = mutableState.value.copy(
             snapshotId = snapshotId,
             content = content,
             mode = mode,
-            canEnterEdit = mode == EditorMode.View,
-            canSave = mode == EditorMode.Edit,
-            canCancel = mode == EditorMode.Edit && lifecycle.canCancelEdit(noteId),
-            canDelete = mode == EditorMode.View,
+            canEnterEdit = mode == EditorMode.View && !isTrashed,
+            canSave = mode == EditorMode.Edit && !isTrashed,
+            canCancel = mode == EditorMode.Edit && !isTrashed && lifecycle.canCancelEdit(noteId),
+            canDelete = mode == EditorMode.View && !isTrashed,
             canRestore = mode == EditorMode.ViewSnapshot,
-            canUndo = undoRedo.canUndo(noteId, mode),
-            canRedo = undoRedo.canRedo(noteId, mode),
-            canOpenHistory = mode == EditorMode.View && history.canOpenHistory(noteId),
+            canUndo = !isTrashed && undoRedo.canUndo(noteId, mode),
+            canRedo = !isTrashed && undoRedo.canRedo(noteId, mode),
+            canOpenHistory = mode == EditorMode.View && !isTrashed && history.canOpenHistory(noteId),
             canExport = true,
             canShare = true,
+            isTrashed = isTrashed,
             prompt = prompt,
         )
     }
