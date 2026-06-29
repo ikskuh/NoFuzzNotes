@@ -74,6 +74,12 @@ class NoteListViewModel(
         effectBuffer.emit(PresentationEffect.Navigate(AppRoute.Editor(result.note.id)))
     }
 
+    // Navigate to an existing note because rows open drafts through ViewModel effects.
+    fun openNote(noteId: Long) {
+        assert(noteId > 0L)
+        effectBuffer.emit(PresentationEffect.Navigate(AppRoute.Editor(noteId)))
+    }
+
     // Navigate to full-text search because list menu actions are presentation effects.
     fun openFullTextSearch() { effectBuffer.emit(PresentationEffect.Navigate(AppRoute.Search)) }
 
