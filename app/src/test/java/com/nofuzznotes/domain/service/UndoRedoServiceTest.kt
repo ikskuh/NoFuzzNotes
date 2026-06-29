@@ -188,6 +188,18 @@ class UndoRedoServiceTest {
         assertFalse(fixture.undoRedoService.canUndo(noteId, EditorMode.Edit))
     }
 
+    // Verify trashed notes reject new edits because deleted drafts are view-only until restored.
+    @Test
+    fun trashedNotesCannotRecordNewEdits() {
+        val fixture = fixture()
+        val noteId = fixture.lifecycle.createNote().note.id
+        fixture.notes.markDeleted(noteId)
+
+        assertThrows(IllegalStateException::class.java) {
+            fixture.undoRedoService.recordEdit(noteId, edit(UndoOperationKind.Typing, "", "a", 0, 1))
+        }
+    }
+
     // Verify snapshot view never exposes draft undo because historical content is read-only.
     @Test
     fun snapshotViewDoesNotAllowUndo() {

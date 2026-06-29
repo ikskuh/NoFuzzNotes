@@ -112,6 +112,30 @@ class NoteLifecycleServiceTest {
         assertTrue(fixture.service.canCancelEdit(noteId))
     }
 
+    // Verify cancel edit clears stale redo because cancel is a new destructive edit operation.
+    @Test
+    fun cancelEditClearsRedoStack() {
+        val fixture = fixture()
+        val noteId = fixture.service.createNote().note.id
+        fixture.service.editDraft(noteId, "saved")
+        fixture.service.saveNote(noteId)
+        fixture.undoRedo.create(
+            noteId = noteId,
+            direction = UndoDirection.Redo,
+            operationKind = UndoOperationKind.Typing,
+            position = 0,
+            textBefore = "old",
+            textAfter = "future",
+            cursorBefore = 0,
+            cursorAfter = 6,
+        )
+        fixture.service.editDraft(noteId, "unsaved")
+
+        fixture.service.cancelEdit(noteId)
+
+        assertEquals(emptyList<Nothing>(), fixture.undoRedo.listForNote(noteId, UndoDirection.Redo))
+    }
+
     private data class Fixture(
         val clock: TestClock,
         val notes: FakeNoteRepository,
