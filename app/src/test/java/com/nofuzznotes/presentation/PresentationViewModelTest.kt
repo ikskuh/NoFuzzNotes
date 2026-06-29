@@ -1,5 +1,7 @@
 package com.nofuzznotes.presentation
 
+import com.nofuzznotes.core.model.TextSelection
+import com.nofuzznotes.core.model.UndoDirection
 import com.nofuzznotes.core.time.TestClock
 import com.nofuzznotes.domain.recovery.RecoverableDatabase
 import com.nofuzznotes.domain.recovery.RecoveryService
@@ -177,6 +179,19 @@ class PresentationViewModelTest {
         assertEquals(PromptKind.RestoreSnapshot, viewModel.state.value.prompt?.kind)
         viewModel.confirmRestoreSnapshot()
         assertEquals(AppRoute.Editor(noteId), (viewModel.effects.first { it is PresentationEffect.Navigate } as PresentationEffect.Navigate).route)
+    }
+
+    @Test
+    fun editorPassesSelectionStateToUndoService() {
+        val fixture = Fixture()
+        val noteId = fixture.lifecycle.createNote().note.id
+        val viewModel = fixture.editorViewModel(noteId)
+
+        viewModel.textEdited("abcd", TextSelection(1, 3))
+
+        val entry = fixture.undoRedo.peek(noteId, UndoDirection.Undo) ?: error("Undo entry expected")
+        assertEquals(TextSelection(1, 3), entry.selectionAfter)
+        assertEquals(3, entry.cursorAfter)
     }
 
     @Test

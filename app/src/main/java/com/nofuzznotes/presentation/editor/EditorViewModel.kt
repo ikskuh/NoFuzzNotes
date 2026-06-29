@@ -1,6 +1,7 @@
 package com.nofuzznotes.presentation.editor
 
 import androidx.lifecycle.ViewModel
+import com.nofuzznotes.core.model.TextSelection
 import com.nofuzznotes.core.model.UndoOperationKind
 import com.nofuzznotes.domain.service.DisplayedContent
 import com.nofuzznotes.domain.service.EditorMode
@@ -80,18 +81,37 @@ class EditorViewModel(
 
     // Persist text and undo information together because user edits must survive process death.
     fun textChanged(newContent: String) {
+        // Preserve the old API for tests because callers without selection still represent a cursor at text end.
+        textEdited(newContent, TextSelection(newContent.length, newContent.length))
+    }
+
+    // Persist text with selection because durable undo must restore cursor state after replay.
+    fun textEdited(newContent: String, selection: TextSelection) {
+        val current = mutableState.value
+        textEdited(current.content, newContent, TextSelection(current.content.length, current.content.length), selection)
+    }
+
+    // Persist the full editor event because undo replay needs both before and after selection state.
+    fun textEdited(textBefore: String, newContent: String, selectionBefore: TextSelection, selectionAfter: TextSelection) {
         val current = mutableState.value
         check(current.mode == EditorMode.Edit) { "Text changes require edit mode" }
+        assert(current.content == textBefore)
+        assert(selectionBefore.start <= textBefore.length)
+        assert(selectionBefore.end <= textBefore.length)
+        assert(selectionAfter.start <= newContent.length)
+        assert(selectionAfter.end <= newContent.length)
         if (newContent == current.content) return
         undoRedo.recordEdit(
             noteId = noteId,
             edit = TextEdit(
-                operationKind = if (newContent.length >= current.content.length) UndoOperationKind.Typing else UndoOperationKind.Deletion,
-                position = 0,
-                textBefore = current.content,
+                operationKind = operationKindFor(textBefore, newContent),
+                position = firstChangedPosition(textBefore, newContent),
+                textBefore = textBefore,
                 textAfter = newContent,
-                cursorBefore = current.content.length,
-                cursorAfter = newContent.length,
+                cursorBefore = selectionBefore.end,
+                cursorAfter = selectionAfter.end,
+                selectionBefore = selectionBefore,
+                selectionAfter = selectionAfter,
             ),
         )
         setContent(newContent, EditorMode.Edit)
@@ -192,6 +212,38 @@ class EditorViewModel(
             isTrashed = isTrashed,
             prompt = prompt,
         )
+    }
+
+    // Classify text edits conservatively because paste-like chunks must form undo boundaries.
+    private fun operationKindFor(before: String, after: String): UndoOperationKind {
+        if (after.isEmpty() && before.isNotEmpty()) return UndoOperationKind.Clear
+        val position = firstChangedPosition(before, after)
+        val removed = before.length - commonSuffixLength(before, after, position) - position
+        val inserted = after.length - commonSuffixLength(before, after, position) - position
+        return when {
+            removed == 0 && inserted == 1 -> UndoOperationKind.Typing
+            inserted == 0 -> UndoOperationKind.Deletion
+            removed == 0 -> UndoOperationKind.Paste
+            else -> UndoOperationKind.Replacement
+        }
+    }
+
+    // Count the unchanged tail because operation classification needs the replaced span length.
+    private fun commonSuffixLength(before: String, after: String, prefixLength: Int): Int {
+        var count = 0
+        while (count < before.length - prefixLength && count < after.length - prefixLength && before[before.lastIndex - count] == after[after.lastIndex - count]) {
+            count += 1
+        }
+        return count
+    }
+
+    // Locate the edit boundary because undo grouping needs a stable operation position.
+    private fun firstChangedPosition(before: String, after: String): Int {
+        val limit = minOf(before.length, after.length)
+        for (index in 0 until limit) {
+            if (before[index] != after[index]) return index
+        }
+        return limit
     }
 
     // Fail fast for mismatched prompts because confirmation handlers must match visible dialogs.
