@@ -34,6 +34,19 @@ class RoomRecoverableDatabaseTest {
         assertTrue(recovery.openFresh())
     }
 
+    // Verify a zero-byte placeholder is treated as first launch because SQLite has not created user data yet.
+    @Test
+    fun zeroByteDatabaseOpensAsFreshInitialSetup() {
+        val file = context.getDatabasePath(dbName)
+        file.parentFile?.mkdirs()
+        file.writeBytes(ByteArray(0))
+
+        val recovery = RoomRecoverableDatabase(context, dbName)
+
+        assertTrue(recovery.openFresh())
+        assertEquals(0, countNotes())
+    }
+
     // Verify corrupt bytes fail open because recovery routing depends on detecting unusable SQLite files.
     @Test
     fun corruptDatabaseDoesNotOpenSuccessfully() {

@@ -46,6 +46,7 @@ class RoomRecoverableDatabase(
     private fun hasInvalidSqliteHeader(databaseFile: File): Boolean {
         if (!databaseFile.exists()) return false
         val expected = "SQLite format 3\u0000".toByteArray(Charsets.US_ASCII)
+        if (databaseFile.length() == 0L) return false
         if (databaseFile.length() < expected.size) return true
         val actual = ByteArray(expected.size)
         databaseFile.inputStream().use { input ->
